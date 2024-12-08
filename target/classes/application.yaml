@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: BankSystem
+  datasource:
+    driver-class-name: com.postgresql.Driver
+    url: jdbc:mysql://localhost:5432/bank
+    username: postgres
+    password:
