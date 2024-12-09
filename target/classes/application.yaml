@@ -13,4 +13,6 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+      hbm2ddl:
+        import_files: ddl.sql
     show-sql: true

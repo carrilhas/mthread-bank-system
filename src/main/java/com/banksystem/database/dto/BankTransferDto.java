@@ -1,14 +1,19 @@
 package com.banksystem.database.dto;
 
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
+import java.time.LocalDateTime;
+
+@NoArgsConstructor
+@AllArgsConstructor
 @Data
 @Builder
 public class BankTransferDto {
+    private Long id;
     private String fromAccountId;
     private String toAccountId;
-    private String type;
-    private Long amount;
+    private float amount;
     private String correlationId;
+    private LocalDateTime updatedAt;
+    private LocalDateTime createdAt;
 }

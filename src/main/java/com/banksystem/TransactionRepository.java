@@ -13,8 +13,5 @@ import java.util.Optional;
 @Repository("transfer")
 public interface TransactionRepository extends JpaRepository<BankTransfer, Long> {
 
-    @Query
-    List<BankTransfer> findByToAccountIdAndCreatedAtBetween(String accountId, LocalDateTime startDate, LocalDateTime endDate);
-
     BankTransfer deleteByCorrelationId(String correlationId);
 }

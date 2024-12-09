@@ -1,0 +1,1 @@
+ALTER TABLE transfer ALTER COLUMN to_account_id SET DATA TYPE bigint USING to_account_id::bigint;

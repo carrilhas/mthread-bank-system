@@ -1,20 +1,25 @@
 package com.banksystem.database.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.Builder;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 
 @Builder
-@Entity
+@Entity(name = "transfer")
+@Getter
 public class BankTransfer {
     @Id
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
     private String fromAccountId;
     private String toAccountId;
-    private Long amount;
+    @Column(name = "transfer_amount")
+    private float amount;
     private String correlationId;
-    private LocalDateTime updatedAt;
-    private LocalDateTime createdAt;
+    @Builder.Default
+    private LocalDateTime updatedAt = LocalDateTime.now();
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
 }

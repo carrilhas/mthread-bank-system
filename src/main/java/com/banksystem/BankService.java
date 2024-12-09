@@ -5,9 +5,12 @@ import com.banksystem.database.dto.BankTransferDto;
 import com.banksystem.database.entity.BankAccount;
 import com.banksystem.database.entity.BankTransfer;
 import lombok.AllArgsConstructor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,41 +29,36 @@ public class BankService {
     private TransactionRepository transactionRepository;
     @Autowired
     private BankServiceMapper modelMapper;
+    private static final Logger logger = LogManager.getLogger(BankService.class);
 
-    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
-    public BankAccountDto createAccount(String type, Long balance) {
-        BankAccountDto bankAccountDto = BankAccountDto.builder()
-                .type(type)
-                .balance(balance)
-                .accountId(UUID.randomUUID().toString())
-                .build();
-
-
-        BankAccount account = accountRepository.save(convertBankAccountToEntity(bankAccountDto));
-        return convertBankAccountToDto(account);
-    }
-
-    public BankTransferDto transfer(Long amount, String fromAccountId, String toAccountId) {
-        BankAccount fromBankAccount = accountRepository.findById(fromAccountId).orElse(null);
-        BankAccount toBankAccount = accountRepository.findById(toAccountId).orElse(null);
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public BankTransferDto transfer(float amount, String fromAccountId, String toAccountId) {
+        BankAccount fromBankAccount = accountRepository.findByAccountId(fromAccountId);
+        BankAccount toBankAccount = accountRepository.findByAccountId(toAccountId);
 
         if (fromBankAccount != null && toBankAccount != null) {
             BankAccountDto fromAccountDto = convertBankAccountToDto(fromBankAccount);
             BankAccountDto toAccountDto = convertBankAccountToDto(toBankAccount);
 
-            if(fromAccountDto.withdraw(amount)){
-                toAccountDto.deposit(amount);
-            }
+            float withdrawn = fromAccountDto.withdraw(amount);
 
-            accountRepository.save(convertBankAccountToEntity(fromAccountDto));
-            accountRepository.save(convertBankAccountToEntity(toAccountDto));
+            if(withdrawn != fromAccountDto.getBalance()){
+                logger.info("Withdrew {} from account {}", amount, fromAccountId);
+                logger.info("Deposited {} into account {}", amount, toAccountId);
+
+                fromBankAccount.setBalance(fromAccountDto.getBalance() - amount);
+                toBankAccount.setBalance(toAccountDto.getBalance() + amount);
+            }
 
             BankTransfer transfer = BankTransfer.builder()
                     .fromAccountId(fromAccountId)
                     .toAccountId(toAccountId)
                     .amount(amount)
+                    .correlationId(UUID.randomUUID().toString())
                     .build();
 
+            accountRepository.save(fromBankAccount);
+            accountRepository.save(toBankAccount);
             return convertBankTransferToDto(transactionRepository.save(transfer));
         }
 
@@ -77,19 +75,8 @@ public class BankService {
         return convertBankTransferToDto(bankTransfer);
     }
 
-    public List<BankTransferDto> getTransfersByDateRange(String accountId, LocalDateTime startDate, LocalDateTime endDate) {
-        return transactionRepository.findByToAccountIdAndCreatedAtBetween(accountId, startDate, endDate)
-                .stream()
-                .map(this::convertBankTransferToDto)
-                .toList();
-    }
-
     public BankTransferDto cancelTransfer(String transferId) {
         return convertBankTransferToDto(transactionRepository.deleteByCorrelationId(transferId));
-    }
-
-    private BankAccount convertBankAccountToEntity(BankAccountDto bankAccountDto) {
-        return modelMapper.map(bankAccountDto, BankAccount.class);
     }
 
     private BankTransferDto convertBankTransferToDto(BankTransfer bankTransfer) {
