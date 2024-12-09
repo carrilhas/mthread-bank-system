@@ -1,38 +1,43 @@
-package com.banksystem.service;
+package com.banksystem;
 
 import com.banksystem.database.dto.BankAccountDto;
 import com.banksystem.database.dto.BankTransferDto;
-import com.banksystem.database.repositories.AccountRepository;
-import com.banksystem.database.repositories.TransactionRepository;
 import com.banksystem.database.entity.BankAccount;
 import com.banksystem.database.entity.BankTransfer;
 import lombok.AllArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.locks.ReentrantLock;
 
 @AllArgsConstructor
 @Service
 public class BankService {
 
-    @Autowired
+    @Autowired(required = false)
     private AccountRepository accountRepository;
     @Autowired
     private TransactionRepository transactionRepository;
     @Autowired
-    private ModelMapper modelMapper;
+    private BankServiceMapper modelMapper;
 
-    public BankAccountDto createAccount(String type, Long balance, String correlationId) {
-        BankAccount bankAccount = BankAccount.builder()
+    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
+    public BankAccountDto createAccount(String type, Long balance) {
+        BankAccountDto bankAccountDto = BankAccountDto.builder()
                 .type(type)
                 .balance(balance)
-                .correlationId(correlationId)
+                .accountId(UUID.randomUUID().toString())
                 .build();
 
-        return convertBankAccountToDto(accountRepository.save(bankAccount));
+
+        BankAccount account = accountRepository.save(convertBankAccountToEntity(bankAccountDto));
+        return convertBankAccountToDto(account);
     }
 
     public BankTransferDto transfer(Long amount, String fromAccountId, String toAccountId) {
@@ -62,8 +67,8 @@ public class BankService {
         return null;
     }
 
-    public BankTransferDto getTransferById(String transferId) {
-        BankTransfer bankTransfer = transactionRepository.getByCorrelationId(transferId).orElse(null);
+    public BankTransferDto getTransferById(Long transferId) {
+        BankTransfer bankTransfer = transactionRepository.getReferenceById(transferId);
 
         if(bankTransfer == null){
             return null;
@@ -72,8 +77,8 @@ public class BankService {
         return convertBankTransferToDto(bankTransfer);
     }
 
-    public List<BankTransferDto> getTransfersByDateRange(String accountId, LocalDate startDate, LocalDate endDate) {
-        return transactionRepository.findByDateRange(accountId, startDate, endDate)
+    public List<BankTransferDto> getTransfersByDateRange(String accountId, LocalDateTime startDate, LocalDateTime endDate) {
+        return transactionRepository.findByToAccountIdAndCreatedAtBetween(accountId, startDate, endDate)
                 .stream()
                 .map(this::convertBankTransferToDto)
                 .toList();

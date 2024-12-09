@@ -1,14 +1,20 @@
 package com.banksystem.database.entity;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import lombok.Builder;
-import lombok.Data;
+
+import java.time.LocalDateTime;
 
 @Builder
-@Data
+@Entity
 public class BankTransfer {
+    @Id
+    private String id;
     private String fromAccountId;
     private String toAccountId;
-    private String type;
     private Long amount;
     private String correlationId;
+    private LocalDateTime updatedAt;
+    private LocalDateTime createdAt;
 }

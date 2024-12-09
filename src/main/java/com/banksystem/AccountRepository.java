@@ -1,9 +1,10 @@
-package com.banksystem.database.repositories;
+package com.banksystem;
 
 import com.banksystem.database.entity.BankAccount;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-@Repository("accounts")
+@Repository
 public interface AccountRepository extends JpaRepository<BankAccount, String> {
+
 }

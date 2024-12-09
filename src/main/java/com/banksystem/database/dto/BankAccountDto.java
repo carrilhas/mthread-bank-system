@@ -1,16 +1,17 @@
 package com.banksystem.database.dto;
 
-import jakarta.persistence.Entity;
+import lombok.Builder;
 import lombok.Data;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Data
-@Entity
+@Builder
 public class BankAccountDto {
 
     private static final Logger logger = LogManager.getLogger(BankAccountDto.class);
@@ -19,14 +20,8 @@ public class BankAccountDto {
     private Long balance;
     private String correlationId;
     private Lock lock;
-
-    public BankAccountDto(String accountId, String type, Long balance, String correlationId) {
-        this.accountId = accountId;
-        this.type = type;
-        this.balance = balance;
-        this.correlationId = correlationId;
-        this.lock = new ReentrantLock();
-    }
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     public boolean withdraw(Long amount) {
         try {

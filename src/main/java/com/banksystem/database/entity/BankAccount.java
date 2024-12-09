@@ -1,22 +1,26 @@
 package com.banksystem.database.entity;
 
-import com.banksystem.database.dto.BankAccountDto;
-import jakarta.persistence.Entity;
-import lombok.Builder;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
 
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.UUID;
 
-
-@Builder
-@Entity
+@Data
+@AllArgsConstructor
+@Entity(name = "account")
 public class BankAccount {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private final String id;
     private final String accountId;
     private final String type;
     private final Long balance;
-    private final String correlationId;
+
+    public BankAccount() {
+        this.id = UUID.randomUUID().toString();
+        this.accountId = UUID.randomUUID().toString();
+        this.type = null;
+        this.balance = null;
+    }
 }

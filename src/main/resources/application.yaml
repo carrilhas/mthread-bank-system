@@ -2,7 +2,15 @@ spring:
   application:
     name: BankSystem
   datasource:
-    driver-class-name: com.postgresql.Driver
-    url: jdbc:mysql://localhost:5432/bank
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/bank
     username: postgres
-    password:
+    password: postgres
+  jakarta:
+    persistence:
+      jdbc:
+        url: jdbc:postgresql://localhost:5432/bank
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
