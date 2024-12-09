@@ -18,29 +18,19 @@ public class BankSystemController {
     @Autowired
     private BankService bankService;
 
-    /**
-     * @PostMapping(path = "/accounts")
-     *     public BankAccountDto createAccount(String type, Long balance) {
-     *         return bankService.createAccount(type, balance);
-     *     }
-     */
-
+    @PostMapping(path = "/accounts")
+    public BankAccountDto createAccount(@RequestBody BankAccountDto bankAccountDto) {
+        return bankService.createAccount(bankAccountDto.getType(), bankAccountDto.getBalance());
+    }
 
     @PostMapping(path = "/transfers")
-    public String transfer(@RequestBody TransferRequest request) {
+    public String transfer(@RequestBody TransferRequest request) throws InterruptedException {
         BankTransferDto bankTransferDto = bankService.transfer(
                 request.getAmount(),
                 request.getFromAccountId(),
                 request.getToAccountId());
 
         return "Transfer successfully created : " + bankTransferDto;
-    }
-
-    @GetMapping(path = "/transfers", params = {"transferId"})
-    public String getTransferById(Long transferId) {
-        BankTransferDto transfer = bankService.getTransferById(transferId);
-
-        return transfer == null ? "Transfer not found" : "Transfer found: " + transfer;
     }
 
     @DeleteMapping(path = "/transfers", params = {"transferId"})

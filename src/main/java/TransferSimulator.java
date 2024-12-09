@@ -3,10 +3,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.List;
 
 public class TransferSimulator {
 
@@ -18,13 +14,19 @@ public class TransferSimulator {
         int numThreads = 1000;
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
-        // Create a list of transfer tasks to run
+        // Submit transfer tasks to the executor
         for (int i = 0; i < numThreads; i++) {
             TransferTask task = new TransferTask(BASE_URL + TRANSFER_ENDPOINT);
-            executor.submit(task);
+            while (!executor.submit(task).isDone()) {
+                // Wait for the executor to be available
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
         }
 
-        // Shut down the ExecutorService
         executor.shutdown();
     }
 }
@@ -53,7 +55,7 @@ class TransferTask implements Runnable {
 
             // Set the request body
             float randomNum = (float) Math.random() * 10;
-            String requestBody = "{\"amount\": 10.99, \"fromAccountId\": \"872031184\", \"toAccountId\": \"894925953\"}";
+            String requestBody = "{\"amount\":" + randomNum + ", \"fromAccountId\": \"872031184\", \"toAccountId\": \"894925953\"}";
             connection.setDoOutput(true);
             connection.getOutputStream().write(requestBody.getBytes("UTF-8"));
 

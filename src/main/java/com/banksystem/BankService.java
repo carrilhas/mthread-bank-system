@@ -7,16 +7,13 @@ import com.banksystem.database.entity.BankTransfer;
 import lombok.AllArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 @AllArgsConstructor
@@ -30,49 +27,57 @@ public class BankService {
     @Autowired
     private BankServiceMapper modelMapper;
     private static final Logger logger = LogManager.getLogger(BankService.class);
+    private final ConcurrentHashMap<String, ReentrantLock> accountLocks = new ConcurrentHashMap<>();
+
+
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public BankAccountDto createAccount(String type, float balance) {
+        BankAccount bankAccount = BankAccount.builder()
+                .accountId(UUID.randomUUID().toString())
+                .type(type)
+                .balance(balance)
+                .build();
+        return convertBankAccountToDto(accountRepository.save(bankAccount));
+    }
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public BankTransferDto transfer(float amount, String fromAccountId, String toAccountId) {
-        BankAccount fromBankAccount = accountRepository.findByAccountId(fromAccountId);
-        BankAccount toBankAccount = accountRepository.findByAccountId(toAccountId);
+        ReentrantLock fromLock = getLock(fromAccountId);
+        ReentrantLock toLock = getLock(toAccountId);
 
-        if (fromBankAccount != null && toBankAccount != null) {
-            BankAccountDto fromAccountDto = convertBankAccountToDto(fromBankAccount);
-            BankAccountDto toAccountDto = convertBankAccountToDto(toBankAccount);
+        fromLock.lock();
+        try {
+            toLock.lock();
+            try {
+                BankAccount fromBankAccount = accountRepository.findByAccountId(fromAccountId);
+                BankAccount toBankAccount = accountRepository.findByAccountId(toAccountId);
 
-            float withdrawn = fromAccountDto.withdraw(amount);
+                if (fromBankAccount != null && toBankAccount != null) {
+                    if (fromBankAccount.withdraw(amount)) {
+                        toBankAccount.deposit(amount);
 
-            if(withdrawn != fromAccountDto.getBalance()){
-                logger.info("Withdrew {} from account {}", amount, fromAccountId);
-                logger.info("Deposited {} into account {}", amount, toAccountId);
+                        logger.info("Withdrew {} from account {}", amount, fromAccountId);
+                        logger.info("Deposited {} into account {}", amount, toAccountId);
+                    }
 
-                fromBankAccount.setBalance(fromAccountDto.getBalance() - amount);
-                toBankAccount.setBalance(toAccountDto.getBalance() + amount);
+                    BankTransfer transfer = BankTransfer.builder()
+                            .fromAccountId(fromAccountId)
+                            .toAccountId(toAccountId)
+                            .amount(amount)
+                            .correlationId(UUID.randomUUID().toString())
+                            .build();
+
+                    accountRepository.save(fromBankAccount);
+                    accountRepository.save(toBankAccount);
+                    return convertBankTransferToDto(transactionRepository.save(transfer));
+                }
+            } finally {
+                toLock.unlock();
             }
-
-            BankTransfer transfer = BankTransfer.builder()
-                    .fromAccountId(fromAccountId)
-                    .toAccountId(toAccountId)
-                    .amount(amount)
-                    .correlationId(UUID.randomUUID().toString())
-                    .build();
-
-            accountRepository.save(fromBankAccount);
-            accountRepository.save(toBankAccount);
-            return convertBankTransferToDto(transactionRepository.save(transfer));
+        } finally {
+            fromLock.unlock();
         }
-
         return null;
-    }
-
-    public BankTransferDto getTransferById(Long transferId) {
-        BankTransfer bankTransfer = transactionRepository.getReferenceById(transferId);
-
-        if(bankTransfer == null){
-            return null;
-        }
-
-        return convertBankTransferToDto(bankTransfer);
     }
 
     public BankTransferDto cancelTransfer(String transferId) {
@@ -85,5 +90,9 @@ public class BankService {
 
     private BankAccountDto convertBankAccountToDto(BankAccount bankAccount) {
         return modelMapper.map(bankAccount, BankAccountDto.class);
+    }
+
+    private ReentrantLock getLock(String accountId) {
+        return accountLocks.computeIfAbsent(accountId, id -> new ReentrantLock());
     }
 }
